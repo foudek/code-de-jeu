@@ -8,7 +8,6 @@ html,body{
   margin:0;
   background:black;
   overflow:hidden;
-  color:white;
   font-family: monospace;
 }
 canvas{display:block;}
@@ -40,7 +39,7 @@ button:hover{
 
 <script>
 
-/* ================== SETUP ================== */
+/* ===================== SETUP ===================== */
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -53,267 +52,256 @@ function resize(){
 addEventListener("resize",resize);
 resize();
 
-/* ================== VARIABLES ================== */
+/* ===================== VARIABLES ===================== */
 
-let t = 0;
 let scene = 0;
+let lastScene = -1;
+let t = 0;
+let zoom = 1;
+let zoomTarget = 1;
+let cameraX = 0;
+let cameraY = 0;
+let cameraTargetX = 0;
+let cameraTargetY = 0;
 let choice = null;
 let playersAlive = 4;
-let lastScene = -1;
 
-/* ================== UTIL ================== */
+/* ===================== CINEMATIC CAMERA ===================== */
 
-function setScene(n){
-  scene = n;
-  lastScene = -1;
+function updateCamera(){
+  zoom += (zoomTarget - zoom) * 0.05;
+  cameraX += (cameraTargetX - cameraX) * 0.05;
+  cameraY += (cameraTargetY - cameraY) * 0.05;
 }
 
-function clearUI(){ ui.innerHTML=""; }
+function applyCamera(){
+  ctx.translate(canvas.width/2,canvas.height/2);
+  ctx.scale(zoom,zoom);
+  ctx.translate(-canvas.width/2 + cameraX,-canvas.height/2 + cameraY);
+}
 
-function caption(txt){
-  ctx.font="18px monospace";
+/* ===================== DRAW UTIL ===================== */
+
+function caption(text){
   ctx.fillStyle="white";
-  ctx.fillText(txt,40,60);
+  ctx.font="18px monospace";
+  ctx.fillText(text,40,60);
 }
 
-/* ================== CAMERA ================== */
-
-function camera(intensity=0.3){
-  ctx.translate(
-    Math.sin(t*0.02)*intensity,
-    Math.cos(t*0.018)*intensity
-  );
-}
-
-/* ================== TABLE DÉTAILLÉE ================== */
-
-function drawTable(){
-  ctx.lineWidth=2;
-  ctx.strokeStyle="white";
-
-  ctx.beginPath();
-  ctx.ellipse(canvas.width/2,canvas.height/1.5,600,260,0,0,Math.PI*2);
-  ctx.stroke();
-
-  // texture trait croisé
-  for(let i=0;i<40;i++){
+function hatching(x,y,w,h,density=20){
+  for(let i=0;i<density;i++){
     ctx.beginPath();
-    ctx.moveTo(canvas.width/2-500+i*25,canvas.height/1.5-200);
-    ctx.lineTo(canvas.width/2-450+i*25,canvas.height/1.5+200);
+    ctx.moveTo(x + Math.random()*w, y);
+    ctx.lineTo(x, y + Math.random()*h);
     ctx.stroke();
   }
 }
 
-/* ================== CARTES ================== */
+/* ===================== REALISTIC FACE ===================== */
 
-function drawCard(x,y,val,suit){
-  ctx.lineWidth=1.5;
-  ctx.strokeRect(x,y,90,130);
+function drawRealFace(x,y,scale,emotion="neutral",scar=false){
 
-  ctx.font="20px monospace";
-  ctx.fillText(val,x+10,y+30);
-  ctx.fillText(suit,x+10,y+60);
-}
-
-function drawCommunityCards(){
-  let startX = canvas.width/2 - 250;
-  drawCard(startX,canvas.height/2+50,"Q","♥");
-  drawCard(startX+110,canvas.height/2+50,"Q","♠");
-  drawCard(startX+220,canvas.height/2+50,"7","♦");
-  drawCard(startX+330,canvas.height/2+50,"A","♣");
-  drawCard(startX+440,canvas.height/2+50,"2","♥");
-}
-
-function drawPlayerHand(){
-  drawCard(canvas.width/2-120,canvas.height-220,"Q","♦");
-  drawCard(canvas.width/2+10,canvas.height-220,"Q","♣");
-}
-
-/* ================== PISTOLET RÉALISTE ================== */
-
-function drawGun(x,y,angle=0,scale=1){
-  ctx.save();
-  ctx.translate(x,y);
-  ctx.rotate(angle);
-  ctx.scale(scale,scale);
-  ctx.lineWidth=2;
-
-  // canon
-  ctx.strokeRect(0,-10,180,20);
-
-  // culasse
-  ctx.strokeRect(-20,-20,140,20);
-
-  // poignée
-  ctx.beginPath();
-  ctx.moveTo(40,20);
-  ctx.lineTo(70,110);
-  ctx.lineTo(30,110);
-  ctx.closePath();
-  ctx.stroke();
-
-  // détente
-  ctx.beginPath();
-  ctx.arc(60,40,15,0,Math.PI);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-/* ================== VISAGE RÉALISTE TRAIT ================== */
-
-function drawFace(x,y,scale,traits={}){
   ctx.save();
   ctx.translate(x,y);
   ctx.scale(scale,scale);
-  ctx.lineWidth=1.5;
+  ctx.lineWidth=1.2;
+  ctx.strokeStyle="white";
 
-  // tête
+  // crâne
   ctx.beginPath();
-  ctx.ellipse(0,0,50,65,0,0,Math.PI*2);
+  ctx.ellipse(0,0,70,90,0,0,Math.PI*2);
   ctx.stroke();
 
-  // axe symétrie léger
+  // mâchoire
   ctx.beginPath();
-  ctx.moveTo(0,-60);
-  ctx.lineTo(0,60);
+  ctx.moveTo(-50,40);
+  ctx.lineTo(0,110);
+  ctx.lineTo(50,40);
   ctx.stroke();
 
   // yeux
   ctx.beginPath();
-  ctx.ellipse(-18,-10,12,6,0,0,Math.PI*2);
-  ctx.ellipse(18,-10,12,6,0,0,Math.PI*2);
+  ctx.ellipse(-25,-10,18,8,0,0,Math.PI*2);
+  ctx.ellipse(25,-10,18,8,0,0,Math.PI*2);
   ctx.stroke();
 
-  // pupilles
   ctx.beginPath();
-  ctx.arc(-18,-10,3,0,Math.PI*2);
-  ctx.arc(18,-10,3,0,Math.PI*2);
+  ctx.arc(-25,-10,4,0,Math.PI*2);
+  ctx.arc(25,-10,4,0,Math.PI*2);
   ctx.fill();
+
+  // sourcils
+  ctx.beginPath();
+  ctx.moveTo(-40,-25);
+  ctx.lineTo(-10,-30);
+  ctx.moveTo(40,-25);
+  ctx.lineTo(10,-30);
+  ctx.stroke();
 
   // nez
   ctx.beginPath();
   ctx.moveTo(0,-5);
-  ctx.lineTo(-5,15);
-  ctx.lineTo(5,15);
+  ctx.lineTo(-5,25);
+  ctx.lineTo(5,25);
   ctx.stroke();
 
   // bouche
   ctx.beginPath();
-  ctx.moveTo(-15,30);
-  ctx.lineTo(15,30);
+  if(emotion==="shock"){
+    ctx.arc(0,50,15,0,Math.PI*2);
+  } else {
+    ctx.moveTo(-20,50);
+    ctx.lineTo(20,50);
+  }
   ctx.stroke();
+
+  if(scar){
+    ctx.beginPath();
+    ctx.moveTo(30,-40);
+    ctx.lineTo(60,30);
+    ctx.stroke();
+  }
 
   // costume
   ctx.beginPath();
-  ctx.moveTo(-50,65);
-  ctx.lineTo(0,160);
-  ctx.lineTo(50,65);
+  ctx.moveTo(-70,90);
+  ctx.lineTo(0,220);
+  ctx.lineTo(70,90);
   ctx.stroke();
+
+  ctx.restore();
+}
+
+/* ===================== REALISTIC HAND ===================== */
+
+function drawHand(x,y,scale,holdingCards=false){
+
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.scale(scale,scale);
+  ctx.lineWidth=1.2;
+  ctx.strokeStyle="white";
+
+  // paume
+  ctx.beginPath();
+  ctx.ellipse(0,0,40,60,0,0,Math.PI*2);
+  ctx.stroke();
+
+  // doigts
+  for(let i=-30;i<=30;i+=20){
+    ctx.beginPath();
+    ctx.ellipse(i,-70,15,40,0,0,Math.PI*2);
+    ctx.stroke();
+  }
+
+  if(holdingCards){
+    ctx.strokeRect(-50,-120,80,120);
+    ctx.strokeRect(-40,-130,80,120);
+  }
+
+  ctx.restore();
+}
+
+/* ===================== REALISTIC GUN ===================== */
+
+function drawGun(x,y,scale,aim=false){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.scale(scale,scale);
+  ctx.lineWidth=2;
+
+  ctx.strokeRect(-20,-20,200,40);
+  ctx.strokeRect(0,-40,150,20);
 
   ctx.beginPath();
-  ctx.moveTo(0,65);
-  ctx.lineTo(0,140);
+  ctx.moveTo(60,20);
+  ctx.lineTo(90,150);
+  ctx.lineTo(40,150);
+  ctx.closePath();
   ctx.stroke();
 
-  if(traits.scar){
+  if(aim){
     ctx.beginPath();
-    ctx.moveTo(20,-30);
-    ctx.lineTo(40,20);
-    ctx.stroke();
-  }
-
-  if(traits.beard){
-    ctx.beginPath();
-    ctx.arc(0,35,25,0,Math.PI);
-    ctx.stroke();
-  }
-
-  if(traits.tension){
-    ctx.beginPath();
-    ctx.moveTo(-25,-25);
-    ctx.lineTo(-10,-30);
-    ctx.moveTo(25,-25);
-    ctx.lineTo(10,-30);
+    ctx.moveTo(200,0);
+    ctx.lineTo(260,0);
     ctx.stroke();
   }
 
   ctx.restore();
 }
 
-/* ================== SCÉNARIO LONG ================== */
+/* ===================== SCENES ===================== */
 
 function drawScene(){
+
   ctx.fillStyle="black";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   ctx.save();
-  camera();
+  applyCamera();
 
   if(scene!==lastScene){
-    clearUI();
-
-    if(scene===2){
+    ui.innerHTML="";
+    if(scene===4){
       let b1=document.createElement("button");
       b1.textContent="TIRER";
-      b1.onclick=()=>{ choice="kill"; playersAlive=3; setScene(3); };
+      b1.onclick=()=>{ choice="kill"; playersAlive=3; scene++; };
 
       let b2=document.createElement("button");
       b2.textContent="DONNER DES JETONS";
-      b2.onclick=()=>{ choice="spare"; playersAlive=4; setScene(3); };
+      b2.onclick=()=>{ choice="spare"; playersAlive=4; scene++; };
 
       ui.appendChild(b1);
       ui.appendChild(b2);
     }
-
     lastScene=scene;
   }
 
   switch(scene){
 
     case 0:
-      drawTable();
-      drawPlayerHand();
-      drawCommunityCards();
-      drawGun(canvas.width-300,canvas.height-200,0.15,1);
-      caption("Tout commence par une table.");
+      zoomTarget=0.8;
+      caption("Une table. Quatre hommes. Une nuit sans témoin.");
       break;
 
     case 1:
-      drawTable();
-      caption("Les cartes mentent moins que les hommes.");
+      zoomTarget=1;
+      drawHand(canvas.width/2,canvas.height-200,1,true);
+      caption("Mes cartes tremblent. Pas mes doigts.");
       break;
 
     case 2:
-      drawTable();
-      caption("Que vaut une vie face à une victoire ?");
+      zoomTarget=1.2;
+      drawRealFace(canvas.width/2,canvas.height/2,1,"neutral",true);
+      caption("Il me regarde comme on regarde un verdict.");
       break;
 
     case 3:
-      drawTable();
-      drawFace(canvas.width/2-400,canvas.height/2,1,{scar:true,tension:true});
-      drawFace(canvas.width/2+400,canvas.height/2,1,{beard:true});
-      caption("Le silence avale la pièce.");
+      zoomTarget=1.5;
+      drawRealFace(canvas.width/2,canvas.height/2,1.2,"shock",true);
+      caption("Dans ses pupilles : la peur.");
       break;
 
     case 4:
-      drawFace(canvas.width/2,canvas.height/2,2,{scar:true,tension:true});
-      caption("Dans ses yeux : le calcul.");
+      caption("Que vaut une victoire ?");
       break;
 
     case 5:
-      drawGun(canvas.width/2,canvas.height/2, -1.4, 2);
-      caption("Le métal ne tremble pas.");
+      zoomTarget=1;
+      drawGun(canvas.width/2,canvas.height/2,1,true);
+      caption("Le métal ne doute jamais.");
       break;
 
     case 6:
-      drawFace(canvas.width/2,canvas.height/2,2,{beard:true});
-      caption("Il reste toujours un témoin.");
+      zoomTarget=2;
+      drawRealFace(canvas.width/2,canvas.height/2,1.5,"neutral",false);
+      caption("Il reste toujours quelqu'un.");
       break;
 
     case 7:
-      drawGun(canvas.width/2-200,canvas.height/2,-0.2,1.5);
-      caption("Celui qui survit porte le poids.");
+      zoomTarget=1.5;
+      drawGun(canvas.width/2-300,canvas.height/2,1.2,true);
+      caption("Survivre n'est pas gagner.");
       break;
 
     case 8:
@@ -325,17 +313,18 @@ function drawScene(){
   ctx.restore();
 }
 
-/* ================== INPUT ================== */
+/* ===================== INPUT ===================== */
 
 canvas.addEventListener("click",()=>{
-  if(scene!==2 && scene<8){
-    setScene(scene+1);
+  if(scene!==4 && scene<8){
+    scene++;
   }
 });
 
-/* ================== LOOP ================== */
+/* ===================== LOOP ===================== */
 
 function loop(){
+  updateCamera();
   drawScene();
   t++;
   requestAnimationFrame(loop);
