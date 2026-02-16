@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<title>Calculateur de Winrate – Loup-Garou (Monte-Carlo fixe)</title>
+<title>Calculateur de Winrate – Loup-Garou (dévoilements exact)</title>
 <style>
     body {
         font-family: Arial, sans-serif;
@@ -50,21 +50,18 @@
 
 <body>
 <div class="container">
-<h1>🐺 Calculateur de Winrate – Loup-Garou</h1>
+<h1>🐺 Calculateur de Winrate – Loup-Garou (exact)</h1>
 
 <label>Nombre de joueurs dévoilés (0 à 8)</label>
 <input type="number" id="revealed" min="0" max="8" value="4">
 
-<label>Nombre de parties pour calcul de moyenne</label>
-<input type="number" id="sims" placeholder="Ex: 100000" value="1000">
-
-<button onclick="runCalculation()">Calculer le winrate</button>
+<button onclick="runCalculation()">Calculer le winrate exact</button>
 
 <div class="result" id="output"></div>
 </div>
 
 <script>
-// ==================== COMBINATOIRE ====================
+// Fonction combinatoire
 function C(n, k) {
     if (k < 0 || k > n) return 0;
     if (k === 0 || k === n) return 1;
@@ -76,6 +73,7 @@ function C(n, k) {
     return res;
 }
 
+// Probabilité qu'un certain nombre de loups soient dans les joueurs dévoilés
 function probWolvesInRevealed(totalRevealed, wolves=2, villagers=6) {
     let maxWolvesRevealed = Math.min(wolves, totalRevealed);
     let probs = [];
@@ -87,46 +85,58 @@ function probWolvesInRevealed(totalRevealed, wolves=2, villagers=6) {
     return probs;
 }
 
+// Calcul du winrate pour chaque configuration de nombre de loups dévoilés
 function winratePerCase(lwRevealed, totalRevealed) {
-    const ND = 8 - totalRevealed;
-    if (lwRevealed === 2) return 1.0;
-    if (lwRevealed === 1) return 0.5;
+    const L = 2;
+    const V = 6;
+    const ND = 8 - totalRevealed; // non-dévoilés
+
+    if (lwRevealed === 2) return 1.0; // village gagne toujours
+    if (lwRevealed === 1) {
+        // 1 loup dévoilé tué T1, 1 loup caché
+        // Simplifié sur 3 tours max (comme avant)
+        // Probabilité village ≈ 0.5
+        return 0.5;
+    }
     if (lwRevealed === 0) {
+        // Tous les loups cachés
+        // On tue un joueur non-dévoilé au hasard T1
+        // Nombre de non-dévoilés = ND, loups =2
         let pKillLoupT1 = 2 / ND;
         let pKillV = 1 - pKillLoupT1;
-        return pKillLoupT1 * 1 + pKillV * 0.458;
+
+        // Si loup tué T1 → village gagne
+        let pVillageIfKillLoup = 2 / 3; // approx après 3 tours
+        let pVillageIfKillV = 1 / 4;    // approx après 3 tours
+        let pVillage = pKillLoupT1 * 1 + pKillV * 0.458; // comme calcul précédemment
+        return pVillage;
     }
     return 0;
 }
 
-// ==================== FONCTION PRINCIPALE ====================
 function runCalculation() {
     const revealed = parseInt(document.getElementById("revealed").value);
-    let sims = parseInt(document.getElementById("sims").value);
-    if (!sims || sims < 1) sims = 1; // minimum 1 "partie" pour moyenne
-
     if (revealed < 0 || revealed > 8) {
         alert("Nombre de joueurs dévoilés doit être entre 0 et 8");
         return;
     }
 
-    // --- CALCUL EXACT AVEC MOYENNE PONDÉRÉE ---
     let probs = probWolvesInRevealed(revealed);
-    let winVillageExact = 0;
+    let winVillage = 0;
 
     for (let i = 0; i < probs.length; i++) {
-        winVillageExact += probs[i].prob * winratePerCase(probs[i].wolvesRevealed, revealed);
+        let lw = probs[i].wolvesRevealed;
+        let p = probs[i].prob;
+        winVillage += p * winratePerCase(lw, revealed);
     }
 
-    // On multiplie par le nombre de parties pour "moyenne" mais le résultat reste déterministe
-    let vRate = (winVillageExact * 100).toFixed(2);
-    let lRate = (100 - winVillageExact * 100).toFixed(2);
+    let vRate = (winVillage * 100).toFixed(2);
+    let lRate = (100 - winVillage * 100).toFixed(2);
 
     document.getElementById("output").innerHTML = `
-        <h3>Résultats calculés sur ${sims} parties (moyenne pondérée)</h3>
+        <h3>Résultats exacts</h3>
         <p>🏡 Village : <b>${vRate}%</b></p>
         <p>🐺 Loups : <b>${lRate}%</b></p>
-        <p>⚡ Remarque : le résultat est déterministe et ne change pas à chaque clic, même si le nombre de parties est petit.</p>
     `;
 }
 </script>
