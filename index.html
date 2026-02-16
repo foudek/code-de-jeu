@@ -2,29 +2,23 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>LG Winrate Advanced Simulator</title>
+<title>LG Winrate Simulator - 3 Tours</title>
 <style>
 body { background:#111; color:#eee; font-family:Arial; padding:20px; }
-input, button { padding:6px; margin:5px 0; width:200px; }
+input, button { padding:6px; margin:5px 0; width:220px; }
 button { cursor:pointer; }
-.result { margin-top:20px; font-size:18px; }
+.result { margin-top:20px; font-size:18px; line-height:1.6; }
 </style>
 </head>
 <body>
 
-<h2>Simulateur Win Rate Loup-Garou (3 tours max)</h2>
+<h2>Simulateur Loup-Garou (8 joueurs, 2 loups, 3 tours max)</h2>
 
-<label>Joueurs totaux</label><br>
-<input type="number" id="players" value="8"><br>
-
-<label>Nombre de loups</label><br>
-<input type="number" id="wolves" value="2"><br>
-
-<label>Joueurs dévoilement</label><br>
-<input type="number" id="revealed" value="2"><br>
+<label>Nombre de joueurs dévoilement</label><br>
+<input type="number" id="revealed" value="2" min="0" max="8"><br>
 
 <label>Nombre de simulations</label><br>
-<input type="number" id="games" value="1000"><br>
+<input type="number" id="games" value="100"><br>
 
 <button onclick="simulate()">Simuler</button>
 
@@ -36,17 +30,14 @@ function randomChoice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function simulateGame(players, wolvesCount, revealedCount) {
+function simulateGame(revealedCount) {
 
-  // Création rôles
-  let roles = [];
-  for (let i = 0; i < wolvesCount; i++) roles.push("wolf");
-  roles.push("witch");
-  roles.push("hunter");
+  const players = 8;
+  const wolvesCount = 2;
 
-  while (roles.length < players)
-    roles.push("villager");
-
+  // Création des rôles
+  let roles = ["wolf","wolf"];
+  while (roles.length < players) roles.push("villager");
   roles.sort(() => Math.random() - 0.5);
 
   let alive = Array(players).fill(true);
@@ -57,16 +48,13 @@ function simulateGame(players, wolvesCount, revealedCount) {
     revealed.add(Math.floor(Math.random() * players));
   }
 
-  // Loups dévoilés meurent instantanément
+  // Loups dévoilés meurent immédiatement
   revealed.forEach(i => {
     if (roles[i] === "wolf") alive[i] = false;
   });
 
-  let witchHeal = true;
-  let witchKill = true;
-
   function countAlive(type) {
-    return roles.filter((r,i) => r===type && alive[i]).length;
+    return roles.filter((r,i)=>r===type && alive[i]).length;
   }
 
   function aliveIndexes() {
@@ -81,90 +69,71 @@ function simulateGame(players, wolvesCount, revealedCount) {
     return null;
   }
 
-  // Max 3 tours
-  for (let turn = 0; turn < 3; turn++) {
+  // 3 tours max
+  for (let turn = 1; turn <= 3; turn++) {
 
     // --- NUIT ---
-    let wolvesAlive = countAlive("wolf");
-    if (wolvesAlive > 0) {
-      let targets = aliveIndexes().filter(i =>
-        roles[i] !== "wolf" &&
-        !(revealed.has(i) && roles[i] !== "wolf") // innocent dévoilé intouchable
-      );
+    let nightTargets = aliveIndexes().filter(i =>
+      roles[i] !== "wolf" &&
+      !(revealed.has(i) && roles[i] === "villager")
+    );
 
-      if (targets.length > 0) {
-        let victim = randomChoice(targets);
-
-        // Sorcière peut sauver
-        if (witchHeal && roles.includes("witch")) {
-          if (Math.random() < 0.5) {
-            witchHeal = false;
-            victim = null;
-          }
-        }
-
-        if (victim !== null) alive[victim] = false;
-
-        // Potion de mort
-        if (witchKill && roles.includes("witch")) {
-          if (Math.random() < 0.5) {
-            let killTargets = aliveIndexes().filter(i => roles[i] !== "witch");
-            if (killTargets.length > 0) {
-              alive[randomChoice(killTargets)] = false;
-            }
-            witchKill = false;
-          }
-        }
-      }
+    if (nightTargets.length > 0) {
+      alive[randomChoice(nightTargets)] = false;
     }
 
     let win = checkWin();
-    if (win) return win;
+    if (win) return {winner: win, turn: turn};
 
     // --- JOUR ---
-    let voteTargets = aliveIndexes().filter(i =>
-      !(revealed.has(i) && roles[i] !== "wolf")
+    let dayTargets = aliveIndexes().filter(i =>
+      !(revealed.has(i) && roles[i] === "villager")
     );
 
-    if (voteTargets.length > 0) {
-      let voted = randomChoice(voteTargets);
-      alive[voted] = false;
-
-      // Chasseur tire
-      if (roles[voted] === "hunter") {
-        let shotTargets = aliveIndexes();
-        if (shotTargets.length > 0) {
-          alive[randomChoice(shotTargets)] = false;
-        }
-      }
+    if (dayTargets.length > 0) {
+      alive[randomChoice(dayTargets)] = false;
     }
 
     win = checkWin();
-    if (win) return win;
+    if (win) return {winner: win, turn: turn};
   }
 
-  return "village"; // si 3 tours passent sans parité
+  return {winner: "village", turn: 3};
 }
 
 function simulate() {
 
-  const players = +document.getElementById("players").value;
-  const wolves = +document.getElementById("wolves").value;
   const revealed = +document.getElementById("revealed").value;
   const games = +document.getElementById("games").value;
 
   let wolfWins = 0;
   let villageWins = 0;
 
+  let wolfTurnWins = [0,0,0];
+  let villageTurnWins = [0,0,0];
+
   for (let i = 0; i < games; i++) {
-    let result = simulateGame(players, wolves, revealed);
-    if (result === "wolves") wolfWins++;
-    else villageWins++;
+    let result = simulateGame(revealed);
+
+    if (result.winner === "wolves") {
+      wolfWins++;
+      wolfTurnWins[result.turn-1]++;
+    } else {
+      villageWins++;
+      villageTurnWins[result.turn-1]++;
+    }
   }
 
-  document.getElementById("result").innerHTML =
-    `Victoire Loups : ${(wolfWins/games*100).toFixed(1)}%<br>
-     Victoire Village : ${(villageWins/games*100).toFixed(1)}%`;
+  document.getElementById("result").innerHTML = `
+  <strong>Résultat global :</strong><br>
+  Victoire Loups : ${(wolfWins/games*100).toFixed(1)}%<br>
+  Victoire Village : ${(villageWins/games*100).toFixed(1)}%<br><br>
+
+  <strong>Détail par tour :</strong><br>
+  Tour 1 → Loups: ${(wolfTurnWins[0]/games*100).toFixed(1)}% | Village: ${(villageTurnWins[0]/games*100).toFixed(1)}%<br>
+  Tour 2 → Loups: ${(wolfTurnWins[1]/games*100).toFixed(1)}% | Village: ${(villageTurnWins[1]/games*100).toFixed(1)}%<br>
+  Tour 3 → Loups: ${(wolfTurnWins[2]/games*100).toFixed(1)}% | Village: ${(villageTurnWins[2]/games*100).toFixed(1)}%
+  `;
 }
 
 </script>
