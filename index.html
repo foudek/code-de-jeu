@@ -1,141 +1,153 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>LG Winrate Simulator - 3 Tours</title>
+<meta charset="UTF-8" />
+<title>Calculateur de Winrate – Loup-Garou (dévoilements)</title>
 <style>
-body { background:#111; color:#eee; font-family:Arial; padding:20px; }
-input, button { padding:6px; margin:5px 0; width:220px; }
-button { cursor:pointer; }
-.result { margin-top:20px; font-size:18px; line-height:1.6; }
+    body {
+        font-family: Arial, sans-serif;
+        background: #121212;
+        color: #eaeaea;
+        padding: 20px;
+    }
+    h1 {
+        color: #ffcc00;
+    }
+    .container {
+        max-width: 700px;
+        margin: auto;
+        background: #1e1e1e;
+        padding: 20px;
+        border-radius: 8px;
+    }
+    label {
+        display: block;
+        margin-top: 15px;
+    }
+    input, button {
+        margin-top: 5px;
+        padding: 8px;
+        width: 100%;
+        font-size: 16px;
+    }
+    button {
+        background: #ffcc00;
+        border: none;
+        cursor: pointer;
+        margin-top: 20px;
+    }
+    button:hover {
+        background: #ffdb4d;
+    }
+    .result {
+        margin-top: 20px;
+        background: #2a2a2a;
+        padding: 15px;
+        border-radius: 5px;
+    }
 </style>
 </head>
+
 <body>
+<div class="container">
+<h1>🐺 Calculateur de Winrate – Loup-Garou</h1>
 
-<h2>Simulateur Loup-Garou (8 joueurs, 2 loups, 3 tours max)</h2>
+<label>Nombre de joueurs dévoilés (0 à 8)</label>
+<input type="number" id="revealed" min="0" max="8" value="4">
 
-<label>Nombre de joueurs dévoilement</label><br>
-<input type="number" id="revealed" value="2" min="0" max="8"><br>
+<label>Nombre de simulations</label>
+<input type="number" id="sims" value="100000">
 
-<label>Nombre de simulations</label><br>
-<input type="number" id="games" value="100"><br>
+<button onclick="runSimulation()">Lancer la simulation</button>
 
-<button onclick="simulate()">Simuler</button>
-
-<div class="result" id="result"></div>
+<div class="result" id="output"></div>
+</div>
 
 <script>
-
-function randomChoice(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
 }
 
 function simulateGame(revealedCount) {
+    let players = [];
 
-  const players = 8;
-  const wolvesCount = 2;
+    // Création des rôles
+    for (let i = 0; i < 2; i++) players.push({ role: "L", alive: true, revealed: false });
+    for (let i = 0; i < 6; i++) players.push({ role: "V", alive: true, revealed: false });
 
-  // Création des rôles
-  let roles = ["wolf","wolf"];
-  while (roles.length < players) roles.push("villager");
-  roles.sort(() => Math.random() - 0.5);
+    shuffle(players);
 
-  let alive = Array(players).fill(true);
-
-  // Tirage dévoilement
-  let revealed = new Set();
-  while (revealed.size < revealedCount) {
-    revealed.add(Math.floor(Math.random() * players));
-  }
-
-  // Loups dévoilés meurent immédiatement
-  revealed.forEach(i => {
-    if (roles[i] === "wolf") alive[i] = false;
-  });
-
-  function countAlive(type) {
-    return roles.filter((r,i)=>r===type && alive[i]).length;
-  }
-
-  function aliveIndexes() {
-    return roles.map((r,i)=>alive[i]?i:null).filter(i=>i!==null);
-  }
-
-  function checkWin() {
-    let wolvesAlive = countAlive("wolf");
-    let villagersAlive = aliveIndexes().length - wolvesAlive;
-    if (wolvesAlive === 0) return "village";
-    if (wolvesAlive >= villagersAlive) return "wolves";
-    return null;
-  }
-
-  // 3 tours max
-  for (let turn = 1; turn <= 3; turn++) {
-
-    // --- NUIT ---
-    let nightTargets = aliveIndexes().filter(i =>
-      roles[i] !== "wolf" &&
-      !(revealed.has(i) && roles[i] === "villager")
-    );
-
-    if (nightTargets.length > 0) {
-      alive[randomChoice(nightTargets)] = false;
+    // Dévoilements
+    let indices = [...Array(8).keys()];
+    shuffle(indices);
+    for (let i = 0; i < revealedCount; i++) {
+        players[indices[i]].revealed = true;
     }
 
-    let win = checkWin();
-    if (win) return {winner: win, turn: turn};
+    // 3 tours max
+    for (let turn = 1; turn <= 3; turn++) {
 
-    // --- JOUR ---
-    let dayTargets = aliveIndexes().filter(i =>
-      !(revealed.has(i) && roles[i] === "villager")
-    );
+        // JOUR
+        let revealedWolves = players.filter(p => p.alive && p.revealed && p.role === "L");
+        if (revealedWolves.length > 0) {
+            revealedWolves[0].alive = false;
+        } else {
+            let candidates = players.filter(p => p.alive && !p.revealed);
+            if (candidates.length > 0) {
+                candidates[Math.floor(Math.random() * candidates.length)].alive = false;
+            }
+        }
 
-    if (dayTargets.length > 0) {
-      alive[randomChoice(dayTargets)] = false;
+        // Victoire village
+        if (players.filter(p => p.alive && p.role === "L").length === 0) {
+            return "V";
+        }
+
+        // NUIT
+        let nightTargets = players.filter(p => p.alive && p.role === "V" && p.revealed);
+        if (nightTargets.length === 0) {
+            nightTargets = players.filter(p => p.alive && p.role === "V");
+        }
+        if (nightTargets.length > 0) {
+            nightTargets[Math.floor(Math.random() * nightTargets.length)].alive = false;
+        }
+
+        // Victoire loups
+        let wolves = players.filter(p => p.alive && p.role === "L").length;
+        let villagers = players.filter(p => p.alive && p.role === "V").length;
+        if (wolves >= villagers) {
+            return "L";
+        }
     }
 
-    win = checkWin();
-    if (win) return {winner: win, turn: turn};
-  }
-
-  return {winner: "village", turn: 3};
+    return "L";
 }
 
-function simulate() {
+function runSimulation() {
+    const revealed = parseInt(document.getElementById("revealed").value);
+    const sims = parseInt(document.getElementById("sims").value);
 
-  const revealed = +document.getElementById("revealed").value;
-  const games = +document.getElementById("games").value;
+    let villageWins = 0;
+    let wolfWins = 0;
 
-  let wolfWins = 0;
-  let villageWins = 0;
-
-  let wolfTurnWins = [0,0,0];
-  let villageTurnWins = [0,0,0];
-
-  for (let i = 0; i < games; i++) {
-    let result = simulateGame(revealed);
-
-    if (result.winner === "wolves") {
-      wolfWins++;
-      wolfTurnWins[result.turn-1]++;
-    } else {
-      villageWins++;
-      villageTurnWins[result.turn-1]++;
+    for (let i = 0; i < sims; i++) {
+        let result = simulateGame(revealed);
+        if (result === "V") villageWins++;
+        else wolfWins++;
     }
-  }
 
-  document.getElementById("result").innerHTML = `
-  <strong>Résultat global :</strong><br>
-  Victoire Loups : ${(wolfWins/games*100).toFixed(1)}%<br>
-  Victoire Village : ${(villageWins/games*100).toFixed(1)}%<br><br>
+    const vRate = ((villageWins / sims) * 100).toFixed(2);
+    const lRate = ((wolfWins / sims) * 100).toFixed(2);
 
-  <strong>Détail par tour :</strong><br>
-  Tour 1 → Loups: ${(wolfTurnWins[0]/games*100).toFixed(1)}% | Village: ${(villageTurnWins[0]/games*100).toFixed(1)}%<br>
-  Tour 2 → Loups: ${(wolfTurnWins[1]/games*100).toFixed(1)}% | Village: ${(villageTurnWins[1]/games*100).toFixed(1)}%<br>
-  Tour 3 → Loups: ${(wolfTurnWins[2]/games*100).toFixed(1)}% | Village: ${(villageTurnWins[2]/games*100).toFixed(1)}%
-  `;
+    document.getElementById("output").innerHTML = `
+        <h3>Résultats</h3>
+        <p>🏡 Village : <b>${vRate}%</b></p>
+        <p>🐺 Loups : <b>${lRate}%</b></p>
+    `;
 }
-
 </script>
 </body>
 </html>
