@@ -1,234 +1,105 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Dernière Mise</title>
-<style>
-html,body{
-  margin:0;
-  background:black;
-  overflow:hidden;
-  font-family: "Courier New", monospace;
-}
-canvas{display:block;}
-#caption{
-  position:fixed;
-  top:30px;
-  left:40px;
-  color:white;
-  font-size:18px;
-  max-width:45%;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>Loup-Garou Win Rate Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+    }
+    input, button {
+      padding: 8px;
+      margin: 5px 0;
+      width: 200px;
+    }
+    button {
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+  </style>
 </head>
 <body>
 
-<canvas id="c"></canvas>
-<div id="caption"></div>
+<h1>Calculateur de Win Rate – Loup-Garou</h1>
 
-<!-- ================== SVG DESSINS BD ================== -->
+<label>Nombre total de joueurs</label><br>
+<input type="number" id="players" value="8"><br>
 
-<!-- MAFIEUX A (calme, barbe) -->
-<svg id="manA" viewBox="0 0 400 600" style="display:none">
-  <path d="M200 40 C120 60 90 150 100 260 C115 380 150 450 200 480 C250 450 285 380 300 260 C310 150 280 60 200 40"
-        fill="none" stroke="white" stroke-width="3"/>
-  <path d="M120 200 Q160 180 200 200" fill="none" stroke="white" stroke-width="2"/>
-  <path d="M200 200 Q240 180 280 200" fill="none" stroke="white" stroke-width="2"/>
-  <circle cx="160" cy="205" r="4" fill="white"/>
-  <circle cx="240" cy="205" r="4" fill="white"/>
-  <path d="M200 220 C190 270 185 300 200 310 C215 300 210 270 200 220"
-        fill="none" stroke="white" stroke-width="2"/>
-  <path d="M140 340 Q200 370 260 340" fill="none" stroke="white" stroke-width="2"/>
-  <path d="M120 360 C140 430 170 480 200 500 C230 480 260 430 280 360"
-        fill="none" stroke="white" stroke-width="2"/>
-</svg>
+<label>Nombre de loups</label><br>
+<input type="number" id="wolves" value="2"><br>
 
-<!-- MAFIEUX B (cicatrice) -->
-<svg id="manB" viewBox="0 0 400 600" style="display:none">
-  <use href="#manA"/>
-  <path d="M260 140 L310 200" stroke="white" stroke-width="3"/>
-</svg>
+<label>Joueurs à dévoilement</label><br>
+<input type="number" id="revealed" value="4"><br>
 
-<!-- MAFIEUX C (maigre, regard dur) -->
-<svg id="manC" viewBox="0 0 400 600" style="display:none">
-  <path d="M200 40 C140 50 120 140 130 260 C145 360 170 420 200 450 C230 420 255 360 270 260 C280 140 260 50 200 40"
-        fill="none" stroke="white" stroke-width="3"/>
-  <path d="M130 190 L180 185" stroke="white" stroke-width="2"/>
-  <path d="M220 185 L270 190" stroke="white" stroke-width="2"/>
-  <circle cx="160" cy="195" r="4" fill="white"/>
-  <circle cx="240" cy="195" r="4" fill="white"/>
-  <path d="M200 210 L190 260 L210 260" fill="none" stroke="white" stroke-width="2"/>
-  <path d="M160 310 L240 310" stroke="white" stroke-width="2"/>
-</svg>
+<label>Nombre de parties simulées</label><br>
+<input type="number" id="games" value="100"><br>
 
-<!-- MAFIEUX D (chauve, massif) -->
-<svg id="manD" viewBox="0 0 400 600" style="display:none">
-  <path d="M200 60 C110 90 90 180 110 300 C130 420 170 480 200 500 C230 480 270 420 290 300 C310 180 290 90 200 60"
-        fill="none" stroke="white" stroke-width="3"/>
-  <circle cx="160" cy="210" r="5" fill="white"/>
-  <circle cx="240" cy="210" r="5" fill="white"/>
-  <path d="M200 230 C185 280 185 310 200 320 C215 310 215 280 200 230"
-        fill="none" stroke="white" stroke-width="2"/>
-  <path d="M150 340 Q200 330 250 340" fill="none" stroke="white" stroke-width="2"/>
-</svg>
+<button onclick="simulate()">Calculer</button>
 
-<!-- MAIN DU JOUEUR + CARTES -->
-<svg id="handCards" viewBox="0 0 600 400" style="display:none">
-  <path d="M200 260 C180 210 190 160 230 140 C270 120 320 140 340 180 C360 220 350 260 320 300"
-        fill="none" stroke="white" stroke-width="3"/>
-  <path d="M230 140 L220 70" stroke="white" stroke-width="3"/>
-  <path d="M260 135 L260 60" stroke="white" stroke-width="3"/>
-  <path d="M290 145 L300 70" stroke="white" stroke-width="3"/>
-  <path d="M320 180 L350 120" stroke="white" stroke-width="3"/>
-
-  <rect x="360" y="60" width="120" height="180" fill="none" stroke="white" stroke-width="3"/>
-  <rect x="390" y="40" width="120" height="180" fill="none" stroke="white" stroke-width="3"/>
-  <text x="400" y="90" fill="white" font-size="22">A ♥</text>
-  <text x="430" y="70" fill="white" font-size="22">K ♠</text>
-</svg>
-
-<!-- PISTOLET SUR TABLE -->
-<svg id="gunTable" viewBox="0 0 600 200" style="display:none">
-  <rect x="60" y="80" width="360" height="40" fill="none" stroke="white" stroke-width="3"/>
-  <rect x="100" y="50" width="260" height="30" fill="none" stroke="white" stroke-width="3"/>
-  <path d="M200 120 L240 190 L180 190 Z" fill="none" stroke="white" stroke-width="3"/>
-</svg>
-
-<!-- MAIN + PISTOLET POINTÉ -->
-<svg id="gunAim" viewBox="0 0 600 400" style="display:none">
-  <path d="M200 260 C190 220 210 180 250 170 C290 160 340 180 360 210 C380 240 360 270 320 300"
-        fill="none" stroke="white" stroke-width="3"/>
-  <rect x="350" y="190" width="200" height="30" fill="none" stroke="white" stroke-width="3"/>
-  <rect x="380" y="160" width="140" height="30" fill="none" stroke="white" stroke-width="3"/>
-</svg>
+<div class="result" id="result"></div>
 
 <script>
-/* ================= SETUP ================= */
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
-const caption = document.getElementById("caption");
+function simulate() {
+  const players = Number(playersInput.value);
+  const wolves = Number(wolvesInput.value);
+  const revealed = Number(revealedInput.value);
+  const games = Number(gamesInput.value);
 
-function resize(){
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-}
-addEventListener("resize",resize);
-resize();
+  let wolfWins = 0;
+  let villageWins = 0;
 
-/* ================= CAMERA ================= */
-let cam={x:0,y:0,z:1,tx:0,ty:0,tz:1};
-function updateCam(){
-  cam.x+=(cam.tx-cam.x)*0.06;
-  cam.y+=(cam.ty-cam.y)*0.06;
-  cam.z+=(cam.tz-cam.z)*0.06;
-}
-function applyCam(){
-  ctx.translate(canvas.width/2,canvas.height/2);
-  ctx.scale(cam.z,cam.z);
-  ctx.translate(-canvas.width/2+cam.x,-canvas.height/2+cam.y);
-}
+  for (let g = 0; g < games; g++) {
+    // Tirage des loups
+    let roles = Array(players).fill("village");
+    for (let i = 0; i < wolves; i++) roles[i] = "wolf";
+    roles.sort(() => Math.random() - 0.5);
 
-/* ================= SVG DRAW ================= */
-function drawSVG(id,x,y,w,h){
-  const svg=document.getElementById(id);
-  const img=new Image();
-  const xml=new XMLSerializer().serializeToString(svg);
-  img.src="data:image/svg+xml;base64,"+btoa(xml);
-  ctx.drawImage(img,x,y,w,h);
-}
+    // Tirage des dévoilements
+    let revealedIndexes = [];
+    while (revealedIndexes.length < revealed) {
+      let r = Math.floor(Math.random() * players);
+      if (!revealedIndexes.includes(r)) revealedIndexes.push(r);
+    }
 
-/* ================= SCENARIO (60 PLANS) ================= */
-const texts=[
-  "La nuit a toujours la même odeur.",
-  "Les cartes sont bonnes.",
-  "Personne ne sourit.",
-  "Le silence dure trop longtemps.",
-  "Il y a quatre hommes autour de la table.",
-  "Un seul d'entre eux est patient.",
-  "Le pistolet est là depuis le début.",
-  "Personne ne fait semblant de ne pas le voir.",
-  "Un bruit sec.",
-  "Une chaise tombe.",
-  "Personne ne se lève.",
-  "Les cartes restent sur la table.",
-  "Il recharge sans émotion.",
-  "Un autre bruit.",
-  "Il n'en reste plus que deux.",
-  "Je comprends.",
-  "Ce n'était pas une partie.",
-  "C'était une sélection."
-];
+    let wolvesAlive = roles.filter(r => r === "wolf").length;
+    let villagersAlive = players - wolvesAlive;
 
-let scenes=[];
-for(let i=0;i<60;i++){
-  scenes.push({
-    text: texts[Math.min(texts.length-1,Math.floor(i/3))] || "",
-    z:1+ i*0.01,
-    phase:i
-  });
-}
+    // Loups dévoilés meurent immédiatement
+    revealedIndexes.forEach(i => {
+      if (roles[i] === "wolf") {
+        wolvesAlive--;
+      }
+    });
 
-let iScene=0;
+    // Innocents dévoilés sont intouchables
+    let untouchable = revealedIndexes.filter(i => roles[i] === "village").length;
 
-/* ================= DRAW ================= */
-function draw(){
-  ctx.fillStyle="black";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+    let killableVillagers = villagersAlive - untouchable;
 
-  updateCam();
-  ctx.save();
-  applyCam();
-
-  // table
-  ctx.strokeStyle="white";
-  ctx.lineWidth=3;
-  ctx.beginPath();
-  ctx.ellipse(canvas.width/2,canvas.height/2+120,520,210,0,0,Math.PI*2);
-  ctx.stroke();
-
-  // personnages (changements selon phase)
-  if(iScene<30){
-    drawSVG("manA",canvas.width/2-600,canvas.height/2-420,360,540);
-    drawSVG("manB",canvas.width/2-180,canvas.height/2-440,360,540);
-    drawSVG("manC",canvas.width/2+260,canvas.height/2-430,360,540);
-    drawSVG("manD",canvas.width/2+700,canvas.height/2-420,360,540);
-  } else if(iScene<45){
-    drawSVG("manB",canvas.width/2-200,canvas.height/2-440,360,540);
+    // Simulation simple
+    if (wolvesAlive >= killableVillagers) {
+      wolfWins++;
+    } else {
+      villageWins++;
+    }
   }
 
-  // nos mains
-  drawSVG("handCards",canvas.width/2-300,canvas.height-360,600,360);
-
-  // pistolet
-  if(iScene<50){
-    drawSVG("gunTable",canvas.width/2-300,canvas.height/2+170,600,200);
-  } else {
-    drawSVG("gunAim",canvas.width/2-300,canvas.height/2-50,600,400);
-  }
-
-  ctx.restore();
-  caption.textContent=scenes[iScene].text;
+  result.innerHTML = `
+    <p>Victoire Loups : ${(wolfWins / games * 100).toFixed(1)}%</p>
+    <p>Victoire Village : ${(villageWins / games * 100).toFixed(1)}%</p>
+  `;
 }
 
-/* ================= INPUT ================= */
-canvas.addEventListener("click",()=>{
-  iScene++;
-  if(iScene>=scenes.length){
-    ctx.fillStyle="white";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    caption.style.color="black";
-    caption.textContent="Gagner n'a jamais été la même chose que survivre.";
-    return;
-  }
-  cam.tz=scenes[iScene].z;
-});
-
-/* ================= LOOP ================= */
-function loop(){
-  draw();
-  requestAnimationFrame(loop);
-}
-loop();
+const playersInput = document.getElementById("players");
+const wolvesInput = document.getElementById("wolves");
+const revealedInput = document.getElementById("revealed");
+const gamesInput = document.getElementById("games");
 </script>
 
 </body>
